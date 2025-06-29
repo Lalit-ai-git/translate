@@ -10,16 +10,26 @@ function googleTranslateElementInit() {
 function translateText() {
     const inputText = document.getElementById('inputText').value;
     const outputText = document.getElementById('outputText');
-    const translateElement = new google.translate.TranslateElement();
     
-    // Note: Direct API translation is handled by Google Translate widget
-    // This function ensures the output is displayed in the designated area
+    if (!inputText.trim()) {
+        outputText.textContent = 'Please enter text to translate';
+        return;
+    }
+
     outputText.textContent = 'Translating...';
     
-    // Simulate translation output (Google Translate widget handles actual translation)
-    setTimeout(() => {
-        outputText.textContent = inputText; // Placeholder for translated text
-    }, 1000);
+    // Create a temporary element to hold the text for Google Translate
+    const tempDiv = document.createElement('div');
+    tempDiv.textContent = inputText;
+    tempDiv.style.display = 'none';
+    document.body.appendChild(tempDiv);
+
+    // Use Google Translate to translate the temporary element
+    const translateElement = new google.translate.TranslateElement();
+    translateElement.translate(tempDiv, function(translatedText) {
+        outputText.textContent = translatedText || inputText; // Fallback to input if translation fails
+        document.body.removeChild(tempDiv); // Clean up
+    });
 }
 
 // Ensure accessibility: Allow Enter key to trigger translation
