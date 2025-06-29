@@ -2,7 +2,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set current year in footer
     document.getElementById('current-year').textContent = new Date().getFullYear();
     
-    // Translation functionality
+    // Language code mapping for speech synthesis
+    const languageCodeMap = {
+        'en': 'en-US',
+        'hi': 'hi-IN',
+        'kn': 'kn-IN',
+        'fr': 'fr-FR',
+        'de': 'de-DE',
+        'es': 'es-ES',
+        'bn': 'bn-IN',
+        'te': 'te-IN',
+        'ta': 'ta-IN',
+        'gu': 'gu-IN',
+        'mr': 'mr-IN',
+        'sa': 'sa-IN'
+    };
+
+    // Translation elements
     const sourceText = document.getElementById('source-text');
     const translatedText = document.getElementById('translated-text');
     const sourceLanguage = document.getElementById('source-language');
@@ -33,53 +49,133 @@ document.addEventListener('DOMContentLoaded', function() {
         const targetLang = targetLanguage.value;
         
         translateBtn.disabled = true;
-        translateBtn.textContent = 'Translating...';
+        translateBtn.classList.add('loading');
+        translateBtn.textContent = 'Translating';
         
         try {
-            // Using LibreTranslate free API (you might need to set up your own instance)
-            const response = await fetch('https://libretranslate.de/translate', {
-                method: 'POST',
-                body: JSON.stringify({
-                    q: text,
-                    source: sourceLang === 'auto' ? 'auto' : sourceLang,
-                    target: targetLang,
-                    format: 'text'
-                }),
-                headers: {
-                    'Content-Type': 'application/json'
+            // First try to detect language if auto is selected
+            let detectedLang = sourceLang;
+            if (sourceLang === 'auto') {
+                detectedLang = await detectLanguage(text);
+                if (!detectedLang) {
+                    throw new Error('Could not detect language');
                 }
-            });
+            }
+            
+            // Using MyMemory Translation API
+            const response = await fetch(
+                `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${detectedLang === 'auto' ? '' : detectedLang + '|'}${targetLang}`
+            );
             
             if (!response.ok) {
                 throw new Error('Translation failed');
             }
             
             const data = await response.json();
-            translatedText.value = data.translatedText;
+            if (data.responseData) {
+                translatedText.value = data.responseData.translatedText;
+                
+                // Update detected language in UI if auto was used
+                if (sourceLang === 'auto' && data.responseData.detectedLanguage) {
+                    const detectedLangCode = data.responseData.detectedLanguage.lang;
+                    const langOption = document.querySelector(`#source-language option[value="${detectedLangCode}"]`);
+                    if (langOption) {
+                        sourceLanguage.value = detectedLangCode;
+                    }
+                }
+            } else {
+                throw new Error('No translation data received');
+            }
         } catch (error) {
             console.error('Translation error:', error);
             translatedText.value = 'Translation failed. Please try again later.';
-            // Fallback to a different API if the first one fails
-            try {
-                const fallbackResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang === 'auto' ? '' : sourceLang + '|'}${targetLang}`);
-                const fallbackData = await fallbackResponse.json();
-                if (fallbackData.responseData) {
-                    translatedText.value = fallbackData.responseData.translatedText;
-                } else {
-                    throw new Error('Fallback translation failed');
-                }
-            } catch (fallbackError) {
-                console.error('Fallback translation error:', fallbackError);
-                translatedText.value = 'All translation services failed. Please try again later.';
-            }
         } finally {
             translateBtn.disabled = false;
+            translateBtn.classList.remove('loading');
             translateBtn.textContent = 'Translate';
+        }
+    }
+    
+    // Language detection
+    async function detectLanguage(text) {
+        try {
+            // Try with MyMemory API first
+            const response = await fetch(
+                `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=|en`
+            );
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.responseData && data.responseData.detectedLanguage) {
+                    return data.responseData.detectedLanguage.lang;
+                }
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Language detection failed:', error);
+            return null;
+        }
+    }
+    
+    // Text-to-speech function
+    function speakText() {
+        if (!translatedText.value) {
+            alert('No translation to speak');
+            return;
+        }
+        
+        if (!window.speechSynthesis) {
+            alert('Text-to-speech is not supported in your browser');
+            return;
+        }
+        
+        const targetLang = targetLanguage.value;
+        const utterance = new SpeechSynthesisUtterance(translatedText.value);
+        
+        // Use mapped language code or fallback to targetLang
+        utterance.lang = languageCodeMap[targetLang] || targetLang;
+        
+        // Error handling
+        utterance.onerror = function(event) {
+            console.error('Speech synthesis error:', event);
+            alert('Text-to-speech failed. Please try again.');
+        };
+        
+        // Wait for voices to be loaded
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+            findAndSetVoice(utterance, voices);
+            window.speechSynthesis.speak(utterance);
+        } else {
+            window.speechSynthesis.onvoiceschanged = function() {
+                const voices = window.speechSynthesis.getVoices();
+                findAndSetVoice(utterance, voices);
+                window.speechSynthesis.speak(utterance);
+                window.speechSynthesis.onvoiceschanged = null;
+            };
+        }
+    }
+    
+    // Helper function to find the best voice
+    function findAndSetVoice(utterance, voices) {
+        // Try to find exact match
+        const targetVoice = voices.find(voice => 
+            voice.lang === utterance.lang || 
+            voice.lang.startsWith(utterance.lang.split('-')[0])
+        );
+        
+        if (targetVoice) {
+            utterance.voice = targetVoice;
+        } else {
+            // Fallback to any available voice
+            utterance.voice = voices[0];
         }
     }
     
     // Event listeners
     translateBtn.addEventListener('click', translateText);
+    speakBtn.addEventListener('click', speakText);
     
     // Swap languages
     swapBtn.addEventListener('click', function() {
@@ -116,73 +212,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Speak translation
-    speakBtn.addEventListener('click', function() {
-        if (translatedText.value) {
-            const utterance = new SpeechSynthesisUtterance(translatedText.value);
-            utterance.lang = targetLanguage.value; // Set language for proper pronunciation
-            
-            // Try to find a voice for the target language
-            const voices = window.speechSynthesis.getVoices();
-            const targetVoice = voices.find(voice => voice.lang.startsWith(targetLanguage.value));
-            
-            if (targetVoice) {
-                utterance.voice = targetVoice;
-            }
-            
-            window.speechSynthesis.speak(utterance);
-        }
-    });
-    
     // Clear all
     clearBtn.addEventListener('click', function() {
         sourceText.value = '';
         translatedText.value = '';
         wordCount.textContent = '0 words';
     });
-    
-    // Initialize speech synthesis voices
-    if (window.speechSynthesis) {
-        window.speechSynthesis.onvoiceschanged = function() {
-            // Voices are loaded
-        };
-    }
-    
-    // Auto-detect language if that option is selected
-    sourceLanguage.addEventListener('change', function() {
-        if (sourceLanguage.value === 'auto' && sourceText.value.trim()) {
-            detectLanguage(sourceText.value);
-        }
-    });
-    
-    // Language detection function
-    async function detectLanguage(text) {
-        try {
-            const response = await fetch('https://libretranslate.de/detect', {
-                method: 'POST',
-                body: JSON.stringify({
-                    q: text
-                }),
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data[0] && data[0].language) {
-                    // Update the source language dropdown if the detected language is in our list
-                    const detectedLang = data[0].language;
-                    const langOption = document.querySelector(`#source-language option[value="${detectedLang}"]`);
-                    if (langOption) {
-                        sourceLanguage.value = detectedLang;
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Language detection failed:', error);
-        }
-    }
     
     // Add keyboard shortcut for translation (Ctrl+Enter)
     sourceText.addEventListener('keydown', function(e) {
