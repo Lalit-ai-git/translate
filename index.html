@@ -71,10 +71,11 @@
         <section class="translator-section">
             <h2>Instant Translation</h2>
             <div class="translation-input">
-                <label for="inputText">Source Text </label>
+                <h3>Source Text (Auto-detected Language)</h3>
                 <p id="detectedLanguage" aria-live="polite">Detected Language: None</p>
-<br>
-                    <textarea id="inputText" rows="5" cols="50"  maxlength="1000" placeholder="Enter up to 1000 characters to translate" aria-label="Text to translate"></textarea>
+                <div class="input-box">
+                    <textarea id="inputText" maxlength="1000" placeholder="Enter up to 1000 characters to translate" aria-label="Text to translate"></textarea>
+                </div>
                 <p class="char-count"><span id="charCount">0</span>/1000 characters</p>
             </div>
             <div class="translation-controls">
