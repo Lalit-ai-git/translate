@@ -39,11 +39,9 @@ async function translateText() {
     outputText.textContent = 'Translating...';
 
     try {
-        // Ensure the entire text, including line breaks, is sent for translation
         const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(inputText)}`);
         const data = await response.json();
-        // Combine all translated segments to handle multiple sentences
-        const translatedText = data[0].map(segment => segment[0]).join('');
+        const translatedText = data[0][0][0];
         outputText.textContent = translatedText;
     } catch (error) {
         console.error('Translation error:', error);
@@ -68,13 +66,11 @@ async function updateDetectedLanguage() {
 
 // Event listeners
 document.getElementById('inputText').addEventListener('input', updateDetectedLanguage);
-document.getElementById('inputText').addEventListener('keydown', function(e) {
+document.getElementById('inputText').addEventListener('keypress', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
-        // Prevent default Enter behavior (new line) and trigger translation
         e.preventDefault();
         translateText();
     }
-    // Allow Shift+Enter or Enter with Shift for new lines
 });
 
 // Initialize character count
