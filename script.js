@@ -39,18 +39,11 @@ async function translateText() {
     outputText.textContent = 'Translating...';
 
     try {
-        // Send the entire text for translation, preserving new lines and sentence structure
+        // Ensure the entire text, including line breaks, is sent for translation
         const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(inputText)}`);
         const data = await response.json();
-       –
-
-        // Combine all translated segments, preserving line breaks and sentence structure
-        let translatedText = '';
-        if (Array.isArray(data[0])) {
-            translatedText = data[0].map(segment => segment[0]).join('');
-        } else {
-            translatedText = data[0] || 'Translation error';
-        }
+        // Combine all translated segments to handle multiple sentences
+        const translatedText = data[0].map(segment => segment[0]).join('');
         outputText.textContent = translatedText;
     } catch (error) {
         console.error('Translation error:', error);
@@ -81,7 +74,7 @@ document.getElementById('inputText').addEventListener('keydown', function(e) {
         e.preventDefault();
         translateText();
     }
-    // Allow Shift+Enter for new lines
+    // Allow Shift+Enter or Enter with Shift for new lines
 });
 
 // Initialize character count
