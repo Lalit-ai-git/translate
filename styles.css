@@ -84,6 +84,7 @@ textarea {
     border-radius: 4px;
     resize: vertical;
     min-height: 100px;
+    overflow-y: auto; /* Enable vertical scroll bar */
 }
 
 button {
